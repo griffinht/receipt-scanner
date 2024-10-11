@@ -1,27 +1,55 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { html } from 'hono/html'
-import { streamToBuffer } from 'hono/utils/stream'
 
 const app = new Hono()
 
+interface Item {
+  name: string
+  genericName: string
+  price: number
+  department: string
+}
+
+interface ReceiptData {
+  store: string
+  date: string
+  items: Item[]
+  total: number
+}
+
 // Mock function to simulate receipt analysis
-function mockReceiptAnalysis() {
+function mockReceiptAnalysis(): ReceiptData {
   return {
-    store_name: "Grocery Store XYZ",
-    date: "2024-03-15",
-    total_amount: "$37.85",
-    items: [
-      { name: "Milk", price: "$3.99" },
-      { name: "Bread", price: "$2.49" },
-      { name: "Eggs", price: "$4.99" },
-      { name: "Cheese", price: "$5.99" },
-      { name: "Apples", price: "$3.49" },
-      { name: "Chicken", price: "$8.99" },
-      { name: "Pasta", price: "$1.99" },
-      { name: "Tomato Sauce", price: "$1.99" },
-      { name: "Ice Cream", price: "$3.99" }
-    ]
+    "store": "Grocery Mart",
+    "date": "2023-05-20",
+    "items": [
+      {
+        "name": "Organic Bananas",
+        "genericName": "Bananas",
+        "price": 2.99,
+        "department": "Produce"
+      },
+      {
+        "name": "Whole Wheat Bread",
+        "genericName": "Bread",
+        "price": 3.49,
+        "department": "Bakery"
+      },
+      {
+        "name": "2% Milk",
+        "genericName": "Milk",
+        "price": 3.99,
+        "department": "Dairy"
+      },
+      {
+        "name": "Chicken Breast",
+        "genericName": "Chicken",
+        "price": 7.99,
+        "department": "Meat"
+      }
+    ],
+    "total": 18.46
   }
 }
 
@@ -51,22 +79,42 @@ app.post('/scan-receipt', async (c) => {
   const { receipt } = await c.req.parseBody()
   
   if (!(receipt instanceof File)) {
-    return c.text('No file uploaded', 400)
+    return c.json({ error: 'No file uploaded' }, 400)
   }
 
-  // Convert the file to a buffer (we're not using it, but keeping for future use)
-  //await streamToBuffer(receipt.stream())
-
-  // Use the mock function instead of calling the API
+  // Use the mock function to generate receipt data
   const receiptData = mockReceiptAnalysis()
 
-  // Generate a random ID for the receipt
-  const receiptId = Math.floor(Math.random() * 1000000).toString()
+  try {
+    // Send a POST request to localhost:3000/receipts
+    const response = await fetch('http://localhost:3000/receipts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(receiptData),
+    })
 
-  // In a real app, you would save receiptData to a database here
+    if (!response.ok) {
+      const errorData = await response.json()
+      return c.json({ 
+        error: 'Error uploading receipt', 
+        status: response.status,
+        details: errorData 
+      }, response.status as number)
+    }
 
-  // Redirect to the receipt page
-  return c.redirect(`http://localhost:3000/receipts/${receiptId}`)
+    const result = await response.json()
+
+    // Redirect to the receipt page
+    return c.redirect(`http://localhost:3000/receipts/${result.id}`)
+  } catch (error) {
+    console.error('Error uploading receipt:', error)
+    return c.json({ 
+      error: 'Error uploading receipt',
+      details: error instanceof Error ? error.message : String(error)
+    }, 500)
+  }
 })
 
 // Start the server
