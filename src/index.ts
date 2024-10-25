@@ -16,10 +16,11 @@ interface ReceiptData {
   date: string
   items: Item[]
   total: number
+  userId: string  // Add this line
 }
 
 // Mock function to simulate receipt analysis
-function mockReceiptAnalysis(): ReceiptData {
+function mockReceiptAnalysis(): Omit<ReceiptData, 'userId'> {
   return {
     "store": "Grocery Mart",
     "date": "2023-05-20",
@@ -53,6 +54,15 @@ function mockReceiptAnalysis(): ReceiptData {
   }
 }
 
+// Middleware to check for user authentication
+app.use('*', async (c, next) => {
+  const userHeader = c.req.header('user');
+  if (!userHeader) {
+    return c.json({ error: 'Authentication required' }, 401);
+  }
+  await next();
+});
+
 // Update the root route to include a form
 app.get('/', (c) => {
   return c.html(html`
@@ -82,8 +92,14 @@ app.post('/scan-receipt', async (c) => {
     return c.json({ error: 'No file uploaded' }, 400)
   }
 
-  // Use the mock function to generate receipt data
-  const receiptData = mockReceiptAnalysis()
+  // Extract the user ID from the header
+  const userId = c.req.header('user')
+
+  // Use the mock function to generate receipt data and add the user ID
+  const receiptData = {
+    ...mockReceiptAnalysis(),
+    userId: userId
+  }
 
   try {
     // Send a POST request to localhost:3000/receipts
@@ -101,7 +117,7 @@ app.post('/scan-receipt', async (c) => {
         error: 'Error uploading receipt', 
         status: response.status,
         details: errorData 
-      }, response.status as number)
+      })
     }
 
     const result = await response.json()
