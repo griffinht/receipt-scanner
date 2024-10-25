@@ -103,7 +103,7 @@ app.post('/scan-receipt', async (c) => {
 
   try {
     // Send a POST request to localhost:3000/receipts
-    const response = await fetch('http://localhost:3000/receipts', {
+    const response = await fetch('http://localhost:3000/api/receipts', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
