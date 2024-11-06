@@ -123,7 +123,7 @@ app.post('/scan-receipt', async (c) => {
     const result = await response.json()
 
     // Redirect to the receipt page
-    return c.redirect(`http://localhost:3000/receipts/${result.id}`)
+    return c.redirect(`http://analyzer.localhost.com:2999/receipts/${result.id}`)
   } catch (error) {
     console.error('Error uploading receipt:', error)
     return c.json({ 
